@@ -1,6 +1,6 @@
-
 package cl.duoc.proyectolince.ui.screens
-
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,7 +37,8 @@ private val RojoServicios = Color(0xFFEF4444)
 fun ServiciosScreen(
     linceViewModel: LinceViewModel = viewModel()
 ) {
-    val servicios = linceViewModel.servicios
+    val uiState by linceViewModel.uiState.collectAsStateWithLifecycle()
+    val servicios = uiState.servicios
 
     Scaffold(
         containerColor = FondoServicios

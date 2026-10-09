@@ -1,6 +1,7 @@
-
 package cl.duoc.proyectolince.ui.screens
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,7 +36,11 @@ private val TextoPerfil = Color(0xFF1E293B)
 fun PerfilScreen(
     linceViewModel: LinceViewModel = viewModel()
 ) {
-    val usuario = linceViewModel.usuarioActual
+    val uiState by linceViewModel.uiState.collectAsStateWithLifecycle()
+    val usuario = uiState.usuarioActual
+    if (usuario == null) {
+        return
+    }
 
     Scaffold(
         containerColor = FondoPerfil

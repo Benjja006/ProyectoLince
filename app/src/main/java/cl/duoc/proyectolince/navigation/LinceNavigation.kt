@@ -1,6 +1,8 @@
 
 package cl.duoc.proyectolince.navigation
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import cl.duoc.proyectolince.viewmodel.LinceViewModel
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -18,7 +20,7 @@ import cl.duoc.proyectolince.ui.screens.ServiciosScreen
 @Composable
 fun LinceNavigation() {
     val navController = rememberNavController()
-
+    val linceViewModel: LinceViewModel = viewModel()
     val backStackEntry = navController.currentBackStackEntryAsState()
     val rutaActual = backStackEntry.value?.destination?.route
 
@@ -66,11 +68,11 @@ fun LinceNavigation() {
             }
 
             composable("servicios") {
-                ServiciosScreen()
+                ServiciosScreen(linceViewModel = linceViewModel)
             }
 
             composable("perfil") {
-                PerfilScreen()
+                PerfilScreen(linceViewModel = linceViewModel)
             }
         }
     }
