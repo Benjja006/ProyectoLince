@@ -42,6 +42,10 @@ class LinceViewModel : ViewModel() {
         )
     )
 
+    fun actualizarEstado(nuevoEstado: LinceUiState) {
+        _uiState.value = nuevoEstado
+    }
+
     val uiState = _uiState.asStateFlow()
 
     // Conservamos estas propiedades para no romper las pantallas actuales.
