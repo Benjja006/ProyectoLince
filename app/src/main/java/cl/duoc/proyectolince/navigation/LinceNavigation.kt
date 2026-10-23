@@ -1,16 +1,17 @@
 
 package cl.duoc.proyectolince.navigation
 
-import androidx.lifecycle.viewmodel.compose.viewModel
-import cl.duoc.proyectolince.viewmodel.LinceViewModel
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+
+import cl.duoc.proyectolince.viewmodel.LinceViewModel
 import cl.duoc.proyectolince.ui.components.LinceBottomBar
 import cl.duoc.proyectolince.ui.screens.InicioScreen
 import cl.duoc.proyectolince.ui.screens.LoginScreen
@@ -18,19 +19,29 @@ import cl.duoc.proyectolince.ui.screens.PerfilScreen
 import cl.duoc.proyectolince.ui.screens.ServiciosScreen
 
 @Composable
-fun LinceNavigation() {
+fun LinceNavigation(
+    enlaceRecibido: String? = null
+) {
+
     val navController = rememberNavController()
+
     val linceViewModel: LinceViewModel = viewModel()
-    val backStackEntry = navController.currentBackStackEntryAsState()
-    val rutaActual = backStackEntry.value?.destination?.route
+
+    val backStackEntry by
+    navController.currentBackStackEntryAsState()
+
+    val rutaActual = backStackEntry?.destination?.route
 
     Scaffold(
         bottomBar = {
-            if (rutaActual == "inicio" ||
+            if (
+                rutaActual == "inicio" ||
                 rutaActual == "servicios" ||
                 rutaActual == "perfil"
             ) {
-                LinceBottomBar(navController = navController)
+                LinceBottomBar(
+                    navController = navController
+                )
             }
         }
     ) { innerPadding ->
@@ -38,27 +49,42 @@ fun LinceNavigation() {
         NavHost(
             navController = navController,
             startDestination = "login",
-            modifier = Modifier.padding(innerPadding)
+            modifier = androidx.compose.ui.Modifier.padding(
+                innerPadding
+            )
         ) {
+
+            // PANTALLA LOGIN
             composable("login") {
+
                 LoginScreen(
+                    enlaceRecibido = enlaceRecibido,
+
                     onLogin = {
+
                         navController.navigate("inicio") {
+
                             popUpTo("login") {
                                 inclusive = true
                             }
+
+                            launchSingleTop = true
                         }
                     }
                 )
             }
 
+            // PANTALLA INICIO
             composable("inicio") {
+
                 InicioScreen(
+
                     onServiciosClick = {
                         navController.navigate("servicios") {
                             launchSingleTop = true
                         }
                     },
+
                     onPerfilClick = {
                         navController.navigate("perfil") {
                             launchSingleTop = true
@@ -67,12 +93,20 @@ fun LinceNavigation() {
                 )
             }
 
+            // PANTALLA SERVICIOS
             composable("servicios") {
-                ServiciosScreen(linceViewModel = linceViewModel)
+
+                ServiciosScreen(
+                    linceViewModel = linceViewModel
+                )
             }
 
+            // PANTALLA PERFIL
             composable("perfil") {
-                PerfilScreen(linceViewModel = linceViewModel)
+
+                PerfilScreen(
+                    linceViewModel = linceViewModel
+                )
             }
         }
     }
