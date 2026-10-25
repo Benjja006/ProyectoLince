@@ -1,15 +1,14 @@
 
 package cl.duoc.proyectolince.ui.screens
 
-import android.content.Context
 import android.util.Patterns
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -17,17 +16,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-import cl.duoc.proyectolince.CorreoAuth
 import cl.duoc.proyectolince.R
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 
+// COLORES DE SOUTHBOUND SYNC
 private val AzulSouthbound = Color(0xFF122C5A)
 private val CelesteSouthbound = Color(0xFF2CB6E8)
 private val FondoSouthbound = Color(0xFFF5F7FC)
@@ -39,22 +40,31 @@ fun LoginScreen(
     enlaceRecibido: String? = null,
     onLogin: () -> Unit
 ) {
-
-    val context = LocalContext.current
-
     val auth = remember {
         FirebaseAuth.getInstance()
+    }
+
+    var nombre by rememberSaveable {
+        mutableStateOf("")
     }
 
     var correo by rememberSaveable {
         mutableStateOf("")
     }
 
-    var mensaje by rememberSaveable {
+    var contrasena by rememberSaveable {
         mutableStateOf("")
     }
 
-    var hayError by remember {
+    var confirmarContrasena by rememberSaveable {
+        mutableStateOf("")
+    }
+
+    var crearCuenta by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var mostrarContrasena by remember {
         mutableStateOf(false)
     }
 
@@ -62,68 +72,21 @@ fun LoginScreen(
         mutableStateOf(false)
     }
 
-    // Verificar el enlace recibido desde el correo
-    LaunchedEffect(enlaceRecibido) {
+    var mensaje by remember {
+        mutableStateOf("")
+    }
 
-        if (enlaceRecibido != null) {
+    var hayError by remember {
+        mutableStateOf(false)
+    }
 
-            if (auth.isSignInWithEmailLink(enlaceRecibido)) {
-
-                val preferencias = context.getSharedPreferences(
-                    "southbound_login",
-                    Context.MODE_PRIVATE
-                )
-
-                val correoGuardado = preferencias.getString(
-                    "correo_pendiente",
-                    null
-                )
-
-                if (correoGuardado != null) {
-
-                    cargando = true
-                    mensaje = "Verificando tu correo..."
-
-                    auth.signInWithEmailLink(
-                        correoGuardado,
-                        enlaceRecibido
-                    ).addOnCompleteListener { tarea ->
-
-                        cargando = false
-
-                        if (tarea.isSuccessful) {
-
-                            preferencias.edit()
-                                .remove("correo_pendiente")
-                                .apply()
-
-                            mensaje = "Inicio de sesión correcto"
-                            hayError = false
-
-                            // Entrar a la pantalla Inicio
-                            onLogin()
-
-                        } else {
-
-                            mensaje =
-                                "No se pudo verificar el enlace"
-                            hayError = true
-                        }
-                    }
-
-                } else {
-
-                    mensaje =
-                        "Solicita el enlace desde este dispositivo"
-                    hayError = true
-                }
-
-            } else {
-
-                mensaje = "El enlace recibido no es válido"
-                hayError = true
-            }
-        }
+    fun mostrarMensaje(
+        texto: String,
+        error: Boolean = true
+    ) {
+        mensaje = texto
+        hayError = error
+        cargando = false
     }
 
     Column(
@@ -131,18 +94,19 @@ fun LoginScreen(
             .fillMaxSize()
             .background(FondoSouthbound)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
+            .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // LOGO ORIGINAL
         Image(
             painter = painterResource(
                 id = R.drawable.logo_soutgbound
             ),
-            contentDescription = "Logo de Southbound Sync",
-            modifier = Modifier.size(104.dp)
+            contentDescription = "Logo Southbound Sync",
+            modifier = Modifier.size(100.dp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -157,13 +121,14 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Logística turística inteligente y\nsincronización de rutas",
+            text = "Logística turística inteligente y\n" +
+                    "sincronización de rutas",
+            textAlign = TextAlign.Center,
             color = TextoSouthbound,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(modifier = Modifier.height(26.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -191,55 +156,121 @@ fun LoginScreen(
                 )
 
                 Text(
-                    text = "Bienvenido",
+                    text = if (crearCuenta) {
+                        "Crear cuenta"
+                    } else {
+                        "Bienvenido de nuevo"
+                    },
                     color = TextoSouthbound,
                     fontSize = 23.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text = "Ingresa tu correo para recibir un enlace de acceso.",
+                    text = if (crearCuenta) {
+                        "Regístrate con tus datos personales."
+                    } else {
+                        "Ingresa tu correo y contraseña."
+                    },
                     color = TextoSouthbound,
                     style = MaterialTheme.typography.bodySmall
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                // NOMBRE SOLO AL REGISTRARSE
+                if (crearCuenta) {
+                    OutlinedTextField(
+                        value = nombre,
+                        onValueChange = { nombre = it },
+                        label = {
+                            Text("Nombre completo")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !cargando,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
 
-                Text(
-                    text = "Correo electrónico",
-                    color = TextoSouthbound,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelMedium
-                )
-
+                // CORREO
                 OutlinedTextField(
                     value = correo,
-                    onValueChange = {
-                        correo = it
-                        mensaje = ""
-                        hayError = false
+                    onValueChange = { correo = it },
+                    label = {
+                        Text("Correo electrónico")
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     placeholder = {
                         Text("ejemplo@gmail.com")
                     },
-                    singleLine = true,
-                    enabled = !cargando,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = FondoCampo,
-                        focusedContainerColor = FondoCampo,
-                        unfocusedBorderColor = FondoCampo,
-                        focusedBorderColor = CelesteSouthbound,
-                        cursorColor = AzulSouthbound
-                    )
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !cargando,
+                    shape = RoundedCornerShape(12.dp)
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                // CONTRASEÑA
+                OutlinedTextField(
+                    value = contrasena,
+                    onValueChange = { contrasena = it },
+                    label = {
+                        Text("Contraseña")
+                    },
+                    visualTransformation =
+                        if (mostrarContrasena) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = !cargando,
+                    shape = RoundedCornerShape(12.dp)
+                )
 
+                TextButton(
+                    onClick = {
+                        mostrarContrasena = !mostrarContrasena
+                    },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(
+                        text = if (mostrarContrasena) {
+                            "Ocultar contraseña"
+                        } else {
+                            "Mostrar contraseña"
+                        },
+                        color = CelesteSouthbound
+                    )
+                }
+
+                // CONFIRMAR CONTRASEÑA AL REGISTRARSE
+                if (crearCuenta) {
+                    OutlinedTextField(
+                        value = confirmarContrasena,
+                        onValueChange = {
+                            confirmarContrasena = it
+                        },
+                        label = {
+                            Text("Confirmar contraseña")
+                        },
+                        visualTransformation =
+                            PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !cargando,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+
+                // BOTÓN PRINCIPAL
                 Button(
                     onClick = {
 
@@ -248,71 +279,249 @@ fun LoginScreen(
                         if (!Patterns.EMAIL_ADDRESS
                                 .matcher(email).matches()) {
 
-                            mensaje =
-                                "Ingresa un correo electrónico válido"
-                            hayError = true
+                            mostrarMensaje(
+                                "Ingresa un correo válido"
+                            )
+
+                        } else if (contrasena.isBlank()) {
+
+                            mostrarMensaje(
+                                "Ingresa una contraseña"
+                            )
+
+                        } else if (crearCuenta) {
+
+                            // REGISTRAR USUARIO
+
+                            if (nombre.isBlank()) {
+
+                                mostrarMensaje(
+                                    "Ingresa tu nombre completo"
+                                )
+
+                            } else if (contrasena.length < 8) {
+
+                                mostrarMensaje(
+                                    "La contraseña debe tener " +
+                                            "al menos 8 caracteres"
+                                )
+
+                            } else if (
+                                contrasena != confirmarContrasena
+                            ) {
+
+                                mostrarMensaje(
+                                    "Las contraseñas no coinciden"
+                                )
+
+                            } else {
+
+                                cargando = true
+                                mensaje = ""
+
+                                auth.createUserWithEmailAndPassword(
+                                    email,
+                                    contrasena
+                                ).addOnCompleteListener { tarea ->
+
+                                    if (tarea.isSuccessful) {
+
+                                        val usuario = auth.currentUser
+
+                                        if (usuario == null) {
+                                            mostrarMensaje(
+                                                "No se pudo obtener el usuario"
+                                            )
+                                        } else {
+
+                                            val perfil =
+                                                UserProfileChangeRequest
+                                                    .Builder()
+                                                    .setDisplayName(
+                                                        nombre.trim()
+                                                    )
+                                                    .build()
+
+                                            usuario.updateProfile(perfil)
+                                                .addOnCompleteListener {
+
+                                                    auth.setLanguageCode("es")
+
+                                                    usuario.sendEmailVerification()
+                                                        .addOnCompleteListener { envio ->
+
+                                                            auth.signOut()
+
+                                                            if (envio.isSuccessful) {
+                                                                crearCuenta = false
+                                                                contrasena = ""
+                                                                confirmarContrasena = ""
+
+                                                                mostrarMensaje(
+                                                                    "Cuenta creada. " +
+                                                                            "Revisa tu correo y " +
+                                                                            "verifica tu cuenta.",
+                                                                    false
+                                                                )
+                                                            } else {
+                                                                mostrarMensaje(
+                                                                    "La cuenta fue creada, " +
+                                                                            "pero no se pudo enviar " +
+                                                                            "la verificación."
+                                                                )
+                                                            }
+                                                        }
+                                                }
+                                        }
+
+                                    } else {
+
+                                        mostrarMensaje(
+                                            "No se pudo registrar la cuenta. " +
+                                                    "Comprueba si el correo ya está registrado."
+                                        )
+                                    }
+                                }
+                            }
 
                         } else {
 
+                            // INICIAR SESIÓN
+
                             cargando = true
-                            hayError = false
                             mensaje = ""
 
-                            CorreoAuth.enviarEnlace(email) {
-                                    correcto, respuesta ->
+                            auth.signInWithEmailAndPassword(
+                                email,
+                                contrasena
+                            ).addOnCompleteListener { tarea ->
 
-                                cargando = false
-                                mensaje = respuesta
-                                hayError = !correcto
+                                if (tarea.isSuccessful) {
 
-                                if (correcto) {
+                                    val usuario = auth.currentUser
 
-                                    val preferencias =
-                                        context.getSharedPreferences(
-                                            "southbound_login",
-                                            Context.MODE_PRIVATE
+                                    if (usuario?.isEmailVerified == true) {
+
+                                        cargando = false
+                                        mensaje = ""
+                                        onLogin()
+
+                                    } else {
+
+                                        auth.signOut()
+
+                                        mostrarMensaje(
+                                            "Debes verificar tu correo " +
+                                                    "antes de ingresar."
                                         )
+                                    }
 
-                                    preferencias.edit()
-                                        .putString(
-                                            "correo_pendiente",
-                                            email
-                                        )
-                                        .apply()
+                                } else {
+
+                                    mostrarMensaje(
+                                        "Correo o contraseña incorrectos."
+                                    )
                                 }
                             }
                         }
                     },
-                    enabled = !cargando,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
+                    enabled = !cargando,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AzulSouthbound,
                         contentColor = Color.White
                     )
                 ) {
-
                     Text(
-                        text = "Enviar enlace de acceso",
-                        fontSize = 15.sp,
+                        text = if (crearCuenta) {
+                            "Crear mi cuenta"
+                        } else {
+                            "Iniciar sesión"
+                        },
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                if (cargando) {
+                // RECUPERAR CONTRASEÑA
+                if (!crearCuenta) {
+                    TextButton(
+                        onClick = {
 
-                    CircularProgressIndicator(
-                        color = CelesteSouthbound,
-                        modifier = Modifier.align(
-                            Alignment.CenterHorizontally
+                            val email = correo.trim()
+
+                            if (!Patterns.EMAIL_ADDRESS
+                                    .matcher(email).matches()) {
+
+                                mostrarMensaje(
+                                    "Primero escribe tu correo"
+                                )
+
+                            } else {
+
+                                cargando = true
+
+                                auth.setLanguageCode("es")
+
+                                auth.sendPasswordResetEmail(email)
+                                    .addOnCompleteListener {
+
+                                        mostrarMensaje(
+                                            "Si existe una cuenta, " +
+                                                    "recibirás un correo para " +
+                                                    "restablecer la contraseña.",
+                                            false
+                                        )
+                                    }
+                            }
+                        },
+                        enabled = !cargando,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(
+                            text = "¿Olvidaste tu contraseña?",
+                            color = CelesteSouthbound
                         )
+                    }
+                }
+
+                // ALTERNAR ENTRE LOGIN Y REGISTRO
+                TextButton(
+                    onClick = {
+                        crearCuenta = !crearCuenta
+                        contrasena = ""
+                        confirmarContrasena = ""
+                        mensaje = ""
+                        hayError = false
+                    },
+                    enabled = !cargando,
+                    modifier = Modifier.align(
+                        Alignment.CenterHorizontally
+                    )
+                ) {
+                    Text(
+                        text = if (crearCuenta) {
+                            "¿Ya tienes cuenta? Inicia sesión"
+                        } else {
+                            "¿No tienes cuenta? Regístrate"
+                        },
+                        color = AzulSouthbound
                     )
                 }
 
-                if (mensaje.isNotEmpty()) {
+                if (cargando) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(
+                            Alignment.CenterHorizontally
+                        ),
+                        color = CelesteSouthbound
+                    )
+                }
 
+                // MENSAJE DE FIREBASE
+                if (mensaje.isNotEmpty()) {
                     Text(
                         text = mensaje,
                         color = if (hayError) {
@@ -323,18 +532,12 @@ fun LoginScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-
-                Text(
-                    text = "Revisa tu correo y abre el enlace para iniciar sesión.",
-                    color = TextoSouthbound.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Center
-                )
             }
         }
 
         Spacer(modifier = Modifier.height(18.dp))
 
+        // TARJETA INFERIOR
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -342,7 +545,6 @@ fun LoginScreen(
                 containerColor = FondoCampo
             )
         ) {
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -350,8 +552,9 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
-                Column(modifier = Modifier.weight(1f)) {
-
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = "SOUTHBOUND SYNC",
                         color = AzulSouthbound,
@@ -387,7 +590,6 @@ fun LoginScreen(
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-
     LoginScreen(
         enlaceRecibido = null,
         onLogin = {}

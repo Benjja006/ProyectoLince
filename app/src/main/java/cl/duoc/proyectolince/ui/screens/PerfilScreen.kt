@@ -1,31 +1,22 @@
+
 package cl.duoc.proyectolince.ui.screens
 
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.viewmodel.compose.viewModel
+
 import cl.duoc.proyectolince.viewmodel.LinceViewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 private val AzulPerfil = Color(0xFF122C5A)
 private val CelestePerfil = Color(0xFF2CB6E8)
@@ -34,158 +25,237 @@ private val TextoPerfil = Color(0xFF1E293B)
 
 @Composable
 fun PerfilScreen(
-    linceViewModel: LinceViewModel = viewModel()
+    linceViewModel: LinceViewModel,
+    onCerrarSesion: () -> Unit
 ) {
-    val uiState by linceViewModel.uiState.collectAsStateWithLifecycle()
-    val usuario = uiState.usuarioActual
-    if (usuario == null) {
-        return
+    val auth = remember {
+        FirebaseAuth.getInstance()
     }
 
-    Scaffold(
-        containerColor = FondoPerfil
-    ) { innerPadding ->
+    val db = remember {
+        FirebaseFirestore.getInstance()
+    }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Text(
-                text = "SOUTHBOUND SYNC",
-                color = CelestePerfil,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+    var usuario by remember {
+        mutableStateOf(auth.currentUser)
+    }
 
-            Text(
-                text = "Mi perfil",
-                color = AzulPerfil,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
+    var rol by remember {
+        mutableStateOf("Sin asignar")
+    }
 
-            Text(
-                text = "Información de tu cuenta",
-                color = TextoPerfil,
-                fontSize = 14.sp
-            )
+    // Detectar cambios de sesión
+    DisposableEffect(auth) {
 
-            Spacer(modifier = Modifier.height(4.dp))
+        val listener = FirebaseAuth.AuthStateListener {
+            usuario = it.currentUser
+        }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 3.dp
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    Text(
-                        text = "DATOS DEL USUARIO",
-                        color = CelestePerfil,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp
-                    )
+        auth.addAuthStateListener(listener)
 
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(
-                            text = "Nombre",
-                            color = TextoPerfil.copy(alpha = 0.7f),
-                            fontSize = 12.sp
-                        )
-
-                        Text(
-                            text = usuario.nombre,
-                            color = AzulPerfil,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(
-                            text = "Correo electrónico",
-                            color = TextoPerfil.copy(alpha = 0.7f),
-                            fontSize = 12.sp
-                        )
-
-                        Text(
-                            text = usuario.correo,
-                            color = TextoPerfil,
-                            fontSize = 15.sp
-                        )
-                    }
-
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(
-                            text = "Rol",
-                            color = TextoPerfil.copy(alpha = 0.7f),
-                            fontSize = 12.sp
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .background(
-                                    color = Color(0xFFEEF3FF),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                                .padding(
-                                    horizontal = 12.dp,
-                                    vertical = 8.dp
-                                ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = when (usuario.rol.name) {
-                                    "DRIVER" -> "Conductor"
-                                    "GUIA" -> "Guía"
-                                    "COORDINADOR" -> "Coordinador"
-                                    else -> usuario.rol.name
-                                },
-                                color = AzulPerfil,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "Southbound · Material Design 3",
-                modifier = Modifier.fillMaxWidth(),
-                color = TextoPerfil.copy(alpha = 0.65f),
-                fontSize = 11.sp
-            )
+        onDispose {
+            auth.removeAuthStateListener(listener)
         }
     }
+
+    val uid = usuario?.uid
+
+    // Obtener rol del trabajador desde Firestore
+    DisposableEffect(uid) {
+
+        if (uid == null) {
+            rol = "Sin asignar"
+
+            onDispose { }
+
+        } else {
+
+            val listener = db.collection("usuarios")
+                .document(uid)
+                .addSnapshotListener { documento, error ->
+
+                    rol = if (error == null &&
+                        documento != null &&
+                        documento.exists()
+                    ) {
+                        when (documento.getString("rol")) {
+                            "conductor" -> "Conductor"
+                            "guia" -> "Guía"
+                            "coordinador" -> "Coordinador"
+                            else -> "Sin asignar"
+                        }
+                    } else {
+                        "Sin asignar"
+                    }
+                }
+
+            onDispose {
+                listener.remove()
+            }
+        }
+    }
+
+    val nombre = usuario?.displayName
+        ?.takeIf { it.isNotBlank() }
+        ?: "Nombre no configurado"
+
+    val correo = usuario?.email
+        ?: "Correo no disponible"
+
+    val verificado = usuario?.isEmailVerified == true
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(FondoPerfil)
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp)
+    ) {
+
+        Spacer(Modifier.height(30.dp))
+
+        Text(
+            text = "SOUTHBOUND SYNC",
+            color = CelestePerfil,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            text = "Mi perfil",
+            color = AzulPerfil,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = "Información de tu cuenta",
+            color = TextoPerfil,
+            fontSize = 16.sp
+        )
+
+        Spacer(Modifier.height(35.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 4.dp
+            )
+        ) {
+
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(15.dp)
+            ) {
+
+                Text(
+                    text = "DATOS DEL USUARIO",
+                    color = CelestePerfil,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+
+                HorizontalDivider()
+
+                Text(
+                    text = "Nombre",
+                    color = Color.Gray
+                )
+
+                Text(
+                    text = nombre,
+                    color = AzulPerfil,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Correo electrónico",
+                    color = Color.Gray
+                )
+
+                Text(
+                    text = correo,
+                    color = TextoPerfil
+                )
+
+                Text(
+                    text = "Rol",
+                    color = Color.Gray
+                )
+
+                Surface(
+                    color = Color(0xFFEEF3FF),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = rol,
+                        color = AzulPerfil,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+
+                HorizontalDivider()
+
+                Text(
+                    text = "Estado del correo",
+                    color = Color.Gray
+                )
+
+                Text(
+                    text = if (verificado) {
+                        "Correo verificado"
+                    } else {
+                        "Correo no verificado"
+                    },
+                    color = if (verificado) {
+                        Color(0xFF16803D)
+                    } else {
+                        Color(0xFFB45309)
+                    },
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        Spacer(Modifier.height(25.dp))
+
+        // BOTÓN CERRAR SESIÓN
+        Button(
+            onClick = {
+                auth.signOut()
+                onCerrarSesion()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFB42318),
+                contentColor = Color.White
+            )
+        ) {
+            Text(
+                text = "Cerrar sesión",
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
+            text = "Southbound · Material Design 3",
+            color = Color.Gray,
+            fontSize = 12.sp
+        )
+    }
 }
-
-
-@Preview(showBackground = true)
-@Composable
-fun PerfilScreenPreview() {
-    PerfilScreen()
-}
-
