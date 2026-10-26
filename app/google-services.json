@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "503510007015",
+    "project_id": "proyectolince-d9ad8",
+    "storage_bucket": "proyectolince-d9ad8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:503510007015:android:2155c49e3c08f31494b642",
+        "android_client_info": {
+          "package_name": "cl.duoc.proyectolince"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHkWj3jTWTOjssOmd0Kj9JokUTxPRXo14"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
