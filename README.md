@@ -1,90 +1,120 @@
-# Proyecto Lince — Southbound Sync
 
-## 1. Descripción del proyecto
+# Southbound Sync
 
-**Southbound Sync** es una aplicación móvil diseñada para los trabajadores de Southbound, empresa dedicada a servicios turísticos. Su propósito es facilitar la coordinación de los servicios turísticos y centralizar la información relacionada con ellos.
+## Descripción del proyecto
 
-La aplicación considera tres roles de trabajadores: **Driver, Guía y Coordinador**.
+Southbound Sync es una aplicación móvil desarrollada
+en Android Studio con Kotlin.
 
-## 2. Objetivo
+Su objetivo es apoyar la gestión de servicios turísticos,
+facilitando la consulta de viajes asignados a conductores
+y guías mediante una plataforma móvil.
 
-Facilitar la coordinación de los servicios turísticos, mejorando el acceso a la información y la comunicación relacionada con las asignaciones y el estado de los servicios.
+## Problemática
 
-## 3. Tecnologías utilizadas
+Los trabajadores del sector turístico necesitan
+consultar información de sus servicios y traslados.
+
+En algunos sectores, la conexión a internet puede ser
+inestable, lo que dificulta acceder permanentemente
+a los datos de los viajes.
+
+Southbound Sync busca facilitar el acceso y la
+organización de esta información.
+
+## Tecnologías utilizadas
 
 - Kotlin
 - Android Studio
 - Jetpack Compose
 - Material Design 3
-- Navigation Compose
 - Arquitectura MVVM
+- ViewModel y StateFlow
+- Firebase Authentication
+- Cloud Firestore
+- Room (SQLite)
+- Git y GitHub
 
-## 4. Arquitectura del proyecto
+## Funcionalidades implementadas
 
-El proyecto utiliza el patrón **MVVM (Model-View-ViewModel)** para organizar el código y separar las responsabilidades.
-
-- **Model:** contiene las clases `Usuario` y `Servicio`.
-- **View:** contiene las pantallas y los componentes visuales.
-- **ViewModel:** administra los datos de ejemplo utilizados por las pantallas.
-
-### Estructura principal
-
-```text
-cl.duoc.proyectolince
-├── model
-│   ├── Usuario.kt
-│   └── Servicio.kt
-├── navigation
-│   └── LinceNavigation.kt
-├── ui
-│   ├── components
-│   │   └── LinceBottomBar.kt
-│   ├── screens
-│   │   ├── LoginScreen.kt
-│   │   ├── InicioScreen.kt
-│   │   ├── ServiciosScreen.kt
-│   │   └── PerfilScreen.kt
-│   └── theme
-├── viewmodel
-│   └── LinceViewModel.kt
-└── MainActivity.kt
-```
-
-## 5. Pantallas de la aplicación
-
-### Login
-
-Pantalla de inicio de sesión de la aplicación. En esta etapa, no se realiza una autenticación real.
-
-![Pantalla de Login](docs/pantallas/login_southbound.png)
-
-### Inicio
-
-Pantalla principal que permite acceder a las secciones de la aplicación.
-
-![Pantalla de Inicio](docs/pantallas/inicio_southbound.png)
-
-### Servicios
-
-Muestra una lista de servicios turísticos utilizando datos de ejemplo.
-
-![Pantalla de Servicios](docs/pantallas/servicios_southbound.png)
+### Autenticación
+- Registro de usuarios
+- Inicio de sesión con correo y contraseña
+- Verificación de correo electrónico
+- Recuperación de contraseña
+- Cierre de sesión
 
 ### Perfil
+- Información del usuario autenticado
+- Visualización de rol
+- Estado de verificación del correo
 
-Muestra la información de ejemplo del trabajador actual.
+### Servicios turísticos
+- Consulta de servicios asignados
+- Búsqueda por destino
+- Filtros por estado
+- Filtro mediante calendario
+- Visualización de fecha, hora y tipo de servicio
 
-![Pantalla de Perfil](docs/pantallas/perfil_southbound.png)
+### Persistencia
+- Sincronización de servicios con Cloud Firestore
+- Almacenamiento local mediante Room
+- Consulta de servicios previamente guardados
+  sin conexión a internet
 
-## 6. Alcance de esta versión
+### Recursos de Android
+- Selección de fechas
+- Selección de archivos PDF e imágenes
+- Referencias locales de comprobantes
 
-Esta versión corresponde a un prototipo académico. Utiliza datos de ejemplo y navegación entre pantallas. Todavía no incluye una base de datos, autenticación real ni la gestión operativa real de asignaciones, disponibilidad o entradas y salidas de servicios.
+## Arquitectura del proyecto
 
-## 7. Equipo de trabajo
+- Model: representa los datos de la aplicación.
+- View: pantallas creadas con Jetpack Compose.
+- ViewModel: administra los estados de la interfaz.
+- Repository: coordina el acceso a los datos.
+- Room: almacena información localmente.
+- Firebase: proporciona autenticación y datos
+  en la nube.
 
-**Equipo:** Surstromming  
-**Sección:** 003D
+## Requisitos de ejecución
 
-- Benjamin Yovanovich — Backend
-- Benjamin Sepulveda — Líder del proyecto
-- Anibal Toledo — Frontend
+- Android Studio
+- SDK de Android compatible con el proyecto
+- Proyecto Firebase configurado
+- Emulador Android o dispositivo físico
+- Archivo google-services.json válido
+
+## Instrucciones de ejecución
+
+1. Clonar el repositorio desde GitHub.
+2. Abrir el proyecto en Android Studio.
+3. Configurar Firebase para la aplicación.
+4. Incorporar el archivo google-services.json
+   correspondiente.
+5. Sincronizar Gradle.
+6. Ejecutar la aplicación en un emulador
+   o dispositivo Android.
+7. Crear una cuenta o iniciar sesión.
+
+## Integrantes
+
+- Agregar nombre de integrante 1
+- Agregar nombre de integrante 2
+- Agregar nombre de integrante 3
+
+## Estado del proyecto
+
+Avance funcional correspondiente a la
+Evaluación Parcial 2 de Desarrollo de
+Aplicaciones Móviles.
+
+El proyecto continúa en desarrollo.
+
+## Mejoras pendientes
+
+- Completar la gestión de coordinadores
+- Mejorar la administración de servicios
+- Ampliar la gestión de comprobantes
+- Incorporar pruebas adicionales
+- Optimizar la experiencia de usuario

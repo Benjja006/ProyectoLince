@@ -1,129 +1,311 @@
 
 package cl.duoc.proyectolince.ui.screens
 
+import android.app.DatePickerDialog
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+
 import cl.duoc.proyectolince.viewmodel.LinceViewModel
+import cl.duoc.proyectolince.viewmodel.ServiciosViewModel
+
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+
+import java.util.Calendar
+import java.util.Locale
 
 private val AzulServicios = Color(0xFF122C5A)
 private val CelesteServicios = Color(0xFF2CB6E8)
 private val FondoServicios = Color(0xFFF5F7FC)
 
-data class ServicioFirebase(
-    val id: String = "",
-    val destino: String = "",
-    val fecha: String = "",
-    val hora: String = "",
-    val tipo: String = "",
-    val estado: String = ""
-)
-
 @Composable
 fun ServiciosScreen(
     linceViewModel: LinceViewModel
 ) {
-    val auth = remember {
-        FirebaseAuth.getInstance()
-    }
 
-    val db = remember {
-        FirebaseFirestore.getInstance()
-    }
+    // =====================================
+    // VIEWMODEL, ROOM Y FIREBASE
+    // =====================================
 
-    val uid = auth.currentUser?.uid
+    val serviciosVM: ServiciosViewModel = viewModel()
 
-    var servicios by remember {
-        mutableStateOf(
-            emptyList<ServicioFirebase>()
-        )
-    }
+    val servicios by serviciosVM.servicios.collectAsState()
+    val cargando by serviciosVM.cargando.collectAsState()
+    val error by serviciosVM.error.collectAsState()
+    val conexion by serviciosVM.conexion.collectAsState()
 
-    var cargando by remember {
-        mutableStateOf(true)
-    }
+    val context = LocalContext.current
 
-    var error by remember {
+    val uid = FirebaseAuth.getInstance()
+        .currentUser?.uid
+
+    // =====================================
+    // BUSCADOR Y FILTROS
+    // =====================================
+
+    var busqueda by remember {
         mutableStateOf("")
     }
 
-    // Consultar los servicios del trabajador
-    DisposableEffect(uid) {
+    var filtro by remember {
+        mutableStateOf("TODOS")
+    }
 
-        if (uid == null) {
+    var fechaSeleccionada by remember {
+        mutableStateOf("")
+    }
 
-            servicios = emptyList()
-            cargando = false
-            error = "No hay una sesión iniciada"
+    // =====================================
+    // CALENDARIO NATIVO
+    // =====================================
 
-            onDispose { }
+    val abrirCalendario = {
 
-        } else {
+        val calendario = Calendar.getInstance()
 
-            cargando = true
-            servicios = emptyList()
-            error = ""
+        DatePickerDialog(
+            context,
+            { _, anio, mes, dia ->
 
-            val listener = db.collection("servicios")
-                .whereEqualTo("trabajadorUid", uid)
-                .addSnapshotListener { resultado, excepcion ->
+                fechaSeleccionada = String.format(
+                    Locale.US,
+                    "%04d-%02d-%02d",
+                    anio,
+                    mes + 1,
+                    dia
+                )
+            },
+            calendario.get(Calendar.YEAR),
+            calendario.get(Calendar.MONTH),
+            calendario.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
 
-                    cargando = false
+    // =====================================
+    // ALMACENAMIENTO DE COMPROBANTES
+    // =====================================
 
-                    if (excepcion != null) {
+    val preferencias = remember(uid) {
+        context.getSharedPreferences(
+            "comprobantes_${uid ?: "sin_sesion"}",
+            Context.MODE_PRIVATE
+        )
+    }
 
-                        error = "No se pudieron cargar los servicios"
-                        servicios = emptyList()
+    val nombres = remember(uid) {
+        mutableStateMapOf<String, String>()
+    }
 
-                    } else {
+    val uris = remember(uid) {
+        mutableStateMapOf<String, String>()
+    }
 
-                        error = ""
+    var servicioSeleccionadoId by remember(uid) {
+        mutableStateOf<String?>(null)
+    }
 
-                        servicios = resultado?.documents
-                            ?.map { documento ->
+    var mensajeDocumento by remember(uid) {
+        mutableStateOf("")
+    }
 
-                                ServicioFirebase(
-                                    id = documento.id,
-                                    destino = documento.getString("destino")
-                                        ?: "",
-                                    fecha = documento.getString("fecha")
-                                        ?: "",
-                                    hora = documento.getString("hora")
-                                        ?: "",
-                                    tipo = documento.getString("tipo")
-                                        ?: "",
-                                    estado = documento.getString("estado")
-                                        ?: ""
-                                )
-                            }
-                            ?.sortedWith(
-                                compareBy<ServicioFirebase> {
-                                    it.fecha
-                                }.thenBy {
-                                    it.hora
-                                }
-                            )
-                            ?: emptyList()
-                    }
+    // Recuperar comprobantes guardados al abrir la pantalla
+    LaunchedEffect(uid, servicios) {
+
+        nombres.clear()
+        uris.clear()
+
+        if (uid != null) {
+            servicios.forEach { servicio ->
+
+                val uriGuardada = preferencias.getString(
+                    "uri_${servicio.id}",
+                    null
+                )
+
+                val nombreGuardado = preferencias.getString(
+                    "nombre_${servicio.id}",
+                    null
+                )
+
+                if (
+                    uriGuardada != null &&
+                    nombreGuardado != null
+                ) {
+                    uris[servicio.id] = uriGuardada
+                    nombres[servicio.id] = nombreGuardado
                 }
-
-            onDispose {
-                listener.remove()
             }
         }
     }
+
+    // =====================================
+    // SELECCIONAR DOCUMENTO NATIVO
+    // =====================================
+
+    val selectorDocumento =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument()
+        ) { uri ->
+
+            val servicioId = servicioSeleccionadoId
+
+            if (
+                uri != null &&
+                servicioId != null &&
+                uid != null
+            ) {
+
+                try {
+
+                    // Mantener el permiso de lectura
+                    context.contentResolver
+                        .takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+
+                    var nombreArchivo = "Comprobante"
+
+                    context.contentResolver.query(
+                        uri,
+                        arrayOf(OpenableColumns.DISPLAY_NAME),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor ->
+
+                        if (cursor.moveToFirst()) {
+                            nombreArchivo = cursor.getString(0)
+                                ?: nombreArchivo
+                        }
+                    }
+
+                    // Guardar referencia local y nombre
+                    preferencias.edit()
+                        .putString(
+                            "uri_$servicioId",
+                            uri.toString()
+                        )
+                        .putString(
+                            "nombre_$servicioId",
+                            nombreArchivo
+                        )
+                        .apply()
+
+                    nombres[servicioId] = nombreArchivo
+                    uris[servicioId] = uri.toString()
+
+                    mensajeDocumento =
+                        "Comprobante guardado localmente"
+
+                } catch (e: Exception) {
+
+                    mensajeDocumento =
+                        "No se pudo conservar el acceso al documento"
+                }
+            }
+
+            servicioSeleccionadoId = null
+        }
+
+    // =====================================
+    // ABRIR DOCUMENTO GUARDADO
+    // =====================================
+
+    fun abrirComprobante(
+        servicioId: String
+    ) {
+
+        val uriTexto = uris[servicioId] ?: return
+
+        try {
+
+            val uri = Uri.parse(uriTexto)
+
+            val tipo = context.contentResolver
+                .getType(uri) ?: "*/*"
+
+            val intent = Intent(
+                Intent.ACTION_VIEW
+            ).apply {
+
+                setDataAndType(uri, tipo)
+
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+
+            context.startActivity(
+                Intent.createChooser(
+                    intent,
+                    "Abrir comprobante"
+                )
+            )
+
+        } catch (e: ActivityNotFoundException) {
+
+            mensajeDocumento =
+                "No hay una aplicación para abrir este archivo"
+
+        } catch (e: Exception) {
+
+            mensajeDocumento =
+                "No se pudo abrir. Verifica que el archivo exista"
+        }
+    }
+
+    // =====================================
+    // FILTRAR SERVICIOS
+    // =====================================
+
+    val serviciosFiltrados = servicios.filter { servicio ->
+
+        val coincideDestino = servicio.destino.contains(
+            busqueda.trim(),
+            ignoreCase = true
+        )
+
+        val coincideEstado =
+            filtro == "TODOS" ||
+                    servicio.estado == filtro
+
+        val coincideFecha =
+            fechaSeleccionada.isEmpty() ||
+                    servicio.fecha == fechaSeleccionada
+
+        coincideDestino &&
+                coincideEstado &&
+                coincideFecha
+    }
+
+    // =====================================
+    // INTERFAZ
+    // =====================================
 
     Column(
         modifier = Modifier
@@ -132,7 +314,7 @@ fun ServiciosScreen(
             .padding(20.dp)
     ) {
 
-        Spacer(Modifier.height(25.dp))
+        Spacer(Modifier.height(15.dp))
 
         Text(
             text = "SOUTHBOUND SYNC",
@@ -141,7 +323,7 @@ fun ServiciosScreen(
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
 
         Text(
             text = "Mis servicios",
@@ -157,7 +339,127 @@ fun ServiciosScreen(
             color = Color.DarkGray
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = conexion,
+            color = Color.Gray,
+            fontSize = 12.sp
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        // BUSCADOR
+        OutlinedTextField(
+            value = busqueda,
+            onValueChange = {
+                busqueda = it
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = {
+                Text("Buscar por destino")
+            },
+            placeholder = {
+                Text("Ej: Puerto Varas")
+            },
+            singleLine = true
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        // CALENDARIO
+        OutlinedButton(
+            onClick = {
+                abrirCalendario()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+
+            Text(
+                if (fechaSeleccionada.isEmpty()) {
+                    "Seleccionar fecha del servicio"
+                } else {
+                    "Fecha: $fechaSeleccionada"
+                }
+            )
+        }
+
+        if (fechaSeleccionada.isNotEmpty()) {
+
+            TextButton(
+                onClick = {
+                    fechaSeleccionada = ""
+                }
+            ) {
+                Text("Mostrar todas las fechas")
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // FILTROS
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+
+            listOf(
+                "TODOS",
+                "PENDIENTE",
+                "CONFIRMADO",
+                "FINALIZADO"
+            ).forEach { estado ->
+
+                FilterChip(
+                    selected = filtro == estado,
+                    onClick = {
+                        filtro = estado
+                    },
+                    label = {
+                        Text(
+                            when (estado) {
+                                "TODOS" -> "Todos"
+                                "PENDIENTE" -> "Pendientes"
+                                "CONFIRMADO" -> "Confirmados"
+                                else -> "Finalizados"
+                            },
+                            fontSize = 12.sp
+                        )
+                    }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        // MENSAJES
+        if (error.isNotEmpty()) {
+
+            Text(
+                text = error,
+                color = Color(0xFFB45309),
+                fontSize = 13.sp
+            )
+
+            Spacer(Modifier.height(8.dp))
+        }
+
+        if (mensajeDocumento.isNotEmpty()) {
+
+            Text(
+                text = mensajeDocumento,
+                color = AzulServicios,
+                fontSize = 12.sp
+            )
+
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // =====================================
+        // LISTA DE SERVICIOS
+        // =====================================
 
         if (cargando) {
 
@@ -165,14 +467,7 @@ fun ServiciosScreen(
                 color = CelesteServicios
             )
 
-        } else if (error.isNotEmpty()) {
-
-            Text(
-                text = error,
-                color = Color.Red
-            )
-
-        } else if (servicios.isEmpty()) {
+        } else if (serviciosFiltrados.isEmpty()) {
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -180,8 +475,17 @@ fun ServiciosScreen(
                     containerColor = Color.White
                 )
             ) {
+
                 Text(
-                    text = "Todavía no tienes servicios asignados.",
+                    text = if (
+                        busqueda.isNotEmpty() ||
+                        filtro != "TODOS" ||
+                        fechaSeleccionada.isNotEmpty()
+                    ) {
+                        "No se encontraron servicios con esos filtros."
+                    } else {
+                        "Todavía no tienes servicios guardados."
+                    },
                     modifier = Modifier.padding(22.dp),
                     color = AzulServicios
                 )
@@ -190,14 +494,15 @@ fun ServiciosScreen(
         } else {
 
             LazyColumn(
+                modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(
-                    bottom = 16.dp
+                    bottom = 90.dp
                 )
             ) {
 
                 items(
-                    items = servicios,
+                    items = serviciosFiltrados,
                     key = { it.id }
                 ) { servicio ->
 
@@ -234,7 +539,12 @@ fun ServiciosScreen(
                             )
 
                             Text(
-                                text = "Tipo: ${servicio.tipo}"
+                                text = "Tipo: " +
+                                        when (servicio.tipo) {
+                                            "FULL_DAY" -> "Jornada completa"
+                                            "HALF_DAY" -> "Media jornada"
+                                            else -> servicio.tipo
+                                        }
                             )
 
                             Surface(
@@ -248,6 +558,71 @@ fun ServiciosScreen(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(10.dp)
                                 )
+                            }
+
+                            HorizontalDivider(
+                                color = Color(0xFFE5E7EB)
+                            )
+
+                            // SELECCIONAR COMPROBANTE
+                            OutlinedButton(
+                                onClick = {
+
+                                    servicioSeleccionadoId = servicio.id
+
+                                    mensajeDocumento = ""
+
+                                    selectorDocumento.launch(
+                                        arrayOf(
+                                            "application/pdf",
+                                            "image/*"
+                                        )
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Seleccionar comprobante")
+                            }
+
+                            // DOCUMENTO GUARDADO
+                            nombres[servicio.id]?.let { nombre ->
+
+                                Text(
+                                    text = "Comprobante: $nombre",
+                                    color = AzulServicios,
+                                    fontSize = 12.sp
+                                )
+
+                                Button(
+                                    onClick = {
+                                        abrirComprobante(servicio.id)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AzulServicios
+                                    )
+                                ) {
+                                    Text("Abrir comprobante")
+                                }
+
+                                TextButton(
+                                    onClick = {
+
+                                        preferencias.edit()
+                                            .remove("uri_${servicio.id}")
+                                            .remove("nombre_${servicio.id}")
+                                            .apply()
+
+                                        nombres.remove(servicio.id)
+                                        uris.remove(servicio.id)
+
+                                        mensajeDocumento =
+                                            "Referencia local eliminada"
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Quitar comprobante")
+                                }
                             }
                         }
                     }
